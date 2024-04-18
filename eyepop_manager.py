@@ -97,7 +97,6 @@ def get_inference_data(location, timeout=None):
             job = endpoint.upload(location)
 
             data_file.write("[")
-            time.sleep(1)
 
             while result := job.predict():
 

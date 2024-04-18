@@ -35,7 +35,7 @@ def rectangle_bounds(t, time_bounds):
     return (x1, y1, w, h)
 
 
-def splice_video_with_dynamic_rectangles(video_path, file_name, segments, time_bounds, rectangle_color=(255, 0, 0), rectangle_opacity=0.25):
+def splice_video_with_dynamic_rectangles(video_path, file_name, segments, time_bounds, rectangle_color=(255, 0, 0), rectangle_opacity=0.85):
     clip = VideoFileClip(video_path)
     annotated_clips = []
     for start, end in segments:
@@ -44,7 +44,7 @@ def splice_video_with_dynamic_rectangles(video_path, file_name, segments, time_b
         # Create a rectangle that will move according to the frame-specific bounds
         initial_bounds = get_bounds_at_time(time_bounds, start)
         rectangle = ColorClip(size=(int(initial_bounds[2]), int(
-            initial_bounds[3])), color=rectangle_color, duration=0.5, ismask=False)
+            initial_bounds[3])), color=rectangle_color, duration=.25, ismask=False)
         rectangle = rectangle.set_opacity(rectangle_opacity)
         rectangle = rectangle.set_position(
             (initial_bounds[0], initial_bounds[1]))
@@ -55,4 +55,4 @@ def splice_video_with_dynamic_rectangles(video_path, file_name, segments, time_b
 
     # Concatenate all annotated clips
     final_clip = concatenate_videoclips(annotated_clips, method="compose")
-    final_clip.write_videofile(file_name, codec="libx264")
+    final_clip.write_videofile('./output/' + file_name, codec="libx264")

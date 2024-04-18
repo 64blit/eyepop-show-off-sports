@@ -9,26 +9,36 @@ class PersonTracker:
         self.people = {}
 
     # add a person to the people map
-    def add_person(self, label: str, trace_id: int, frame_time: float, bounds: []) -> None:
+    def add_person(self, labels: [], trace_id: int, frame_time: float, bounds: []) -> None:
 
-        trace_id = str(trace_id)
+        # If there are not labels, we try to find the person by trace_id
+        #   This may introduce error if the traceID Jumps from one player to another
+        if len(labels) == 0:
+            for person in self.people:
+                if trace_id in self.people[person]['ids']:
+                    labels.append(person)
+                    break
 
-        if trace_id not in self.people:
-            self.people[trace_id] = {
-                'labels': [],
-                'seconds': [],
-                'time_segments': [],
-                'bounds': {},
-            }
+        for label in labels:
 
-        if label and type(label) == str:
-            self.people[trace_id]['labels'].append(label)
+            if not label or not type(label) == str or not label.isnumeric():
+                continue
 
-        self.people[trace_id]['seconds'].append(frame_time)
-        self.people[trace_id]['bounds'][frame_time] = bounds
+            if label not in self.people:
+
+                self.people[label] = {
+                    'ids': [trace_id],
+                    'seconds': [],
+                    'time_segments': [],
+                    'bounds': {},
+                }
+
+            self.people[label]['ids'].append(trace_id)
+            self.people[label]['seconds'].append(frame_time)
+            self.people[label]['bounds'][frame_time] = bounds
 
     def filter_map(self, threshold=10):
-        self.consolidate_people()
+        # self.consolidate_people()
         self.filter_times(threshold)
 
     # combine any people entries with the same jersey number, and remove the duplicates
@@ -39,36 +49,30 @@ class PersonTracker:
 
             for other_person in people:
 
-                if person != other_person:
+                people[person]['seconds'].extend(
+                    people[other_person]['seconds'])
+                people[person]['seconds'].sort()
 
-                    if people[person]['labels'] == []:
-                        continue
+                people[person]['bounds'].update(
+                    people[other_person]['bounds'])
 
-                    if people[other_person]['labels'] == []:
-                        continue
+                people[person]['ids'].extend(
+                    people[other_person]['ids'])
 
-                    # next we check if any of the other person labels match the current person labels
-                    if not any(label in people[person]['labels'] for label in people[other_person]['labels']):
-                        continue
-
-                    people[person]['seconds'].extend(
-                        people[other_person]['seconds'])
-                    people[person]['seconds'].sort()
-
-                    people[person]['bounds'].update(
-                        people[other_person]['bounds'])
-
-                    people[other_person]['seconds'] = []
-                    people[other_person]['labels'] = []
-                    people[other_person]['bounds'] = {}
+                people[other_person]['ids'] = []
 
         people_to_remove = []
+
         for person in people:
+
             # next we remove duplicate labels
-            people[person]['labels'] = list(set(people[person]['labels']))
+            people[person]['ids'] = list(set(people[person]['ids']))
+            people[person]['seconds'] = list(
+                set(people[person]['seconds']))
+            people[person]['seconds'].sort()
 
             # add the person to the removal list if they have no labels
-            if people[person]['labels'] == []:
+            if people[person]['ids'] == []:
                 people_to_remove.append(person)
 
         # remove the people with no labels
