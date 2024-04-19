@@ -15,11 +15,11 @@ import eyepop_manager as em
 def main(video_file_path: str, target_jersey_number: str, analyze=False):
 
     def upload_video(video_path: str):
-
         #
         #  0. Obtain the EyePop inference data from the video
         #
         if analyze:
+            print("Analyzing video")
             em.get_inference_data(video_path)
 
         # The PersonTracker class is used to track people in the video
@@ -100,6 +100,15 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False):
                 if ball_distance > 0.6 or ball_distance == -1:
                     continue
 
+                # expand the bounds of the person to contain the sports ball location
+                if sports_ball_location['x'] != -1:
+                    obj['x'] = min(obj['x'], sports_ball_location['x'])
+                    obj['y'] = min(obj['y'], sports_ball_location['y'])
+                    obj['width'] = max(
+                        obj['width'], sports_ball_location['width'])
+                    obj['height'] = max(
+                        obj['height'], sports_ball_location['height'])
+
                 # add the person to the person tracker
                 person_tracker.add_person(
                     labels=labels,
@@ -125,14 +134,14 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False):
             if len(person['seconds']) < 30:
                 continue
 
-            file_name = '/player_' + key + '.mp4'
+            file_name = 'player_' + key + '.mp4'
 
             print(video_file_path, file_name, person['time_segments'])
 
-            mm.splice_video_with_dynamic_rectangles(
-                video_file_path, file_name, person['time_segments'], person['bounds'])
+            time.sleep(1)
 
-            # time.sleep(10)
+            mm.create_video(video_file_path, file_name,
+                            person['time_segments'], person['bounds'], resolution=(720, 720))
 
     upload_video(video_file_path)
 

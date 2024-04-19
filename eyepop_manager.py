@@ -1,4 +1,3 @@
-
 from eyepop import EyePopSdk
 
 import os
@@ -6,6 +5,7 @@ import asyncio
 import logging
 import time
 import json
+import aiofiles
 
 
 def get_inference_data(location, timeout=None):
@@ -30,7 +30,7 @@ def get_inference_data(location, timeout=None):
     EYEPOP_SECRET_KEY = open("eyepop_secret.env", "r").read()
     EYEPOP_URL = 'https://staging-api.eyepop.ai'
 
-    with EyePopSdk.endpoint(pop_id=EYEPOP_POP_ID, secret_key=EYEPOP_SECRET_KEY, eyepop_url=EYEPOP_URL) as endpoint:
+    with EyePopSdk.endpoint(pop_id=EYEPOP_POP_ID, secret_key=EYEPOP_SECRET_KEY, eyepop_url=EYEPOP_URL, is_async=False) as endpoint:
 
         manifest = endpoint.get_manifest()
 
@@ -41,6 +41,7 @@ def get_inference_data(location, timeout=None):
                 "manifest": "https://s3.amazonaws.com/models.eyepop.ai/releases/PARSeq/1.0.2/manifest.json",
             }
         )
+
         # set manifest for eyepop-text
         manifest.append(
             {
@@ -90,39 +91,40 @@ def get_inference_data(location, timeout=None):
             """
         )
 
-        data_file = open("data.json", "w")
+        with open("data.json", "w") as data_file:
 
-        try:
-            # Upload video for inference
-            job = endpoint.upload(location)
+            try:
+                # Upload video for inference
+                job = endpoint.upload(location)
 
-            data_file.write("[")
+                data_file.write("[")
 
-            while result := job.predict():
+                while result := job.predict():
 
-                # skip any empty results
-                if 'seconds' not in result:
-                    continue
+                    # skip any empty results
+                    if 'seconds' not in result:
+                        continue
 
-                # write the result to the data.json file
-                data_file.write(json.dumps(result, indent=4, sort_keys=True))
-                data_file.write(",")
+                    # write the result to the data.json file
+                    data_file.write(json.dumps(
+                        result, indent=4, sort_keys=True))
+                    data_file.write(",")
 
-                #  stop job if timeout is reached
-                if timeout is not None and result['seconds'] > timeout:
-                    job.cancel()
+                    #  stop job if timeout is reached
+                    if timeout is not None and result['seconds'] > timeout:
+                        job.cancel()
 
-                print(result['seconds'])
+                    print(result['seconds'])
 
-            # remove the last comma
-            data_file.seek(data_file.tell() - 1, os.SEEK_SET)
-            data_file.truncate()
-            data_file.write("]")
+                # remove the last comma
+                data_file.seek(data_file.tell() - 1, os.SEEK_SET)
+                data_file.truncate()
+                data_file.write("]")
 
-            data_file.close()
+                data_file.close()
 
-        except Exception as e:
-            print('\n\n\n\n\n\n\n\n')
-            print(e)
-            print('\n\n\n\n\n\n\n\n')
-            data_file.close()
+            except Exception as e:
+                print('\n\n\n\n\n\n\n\n')
+                print(e)
+                print('\n\n\n\n\n\n\n\n')
+                data_file.close()
