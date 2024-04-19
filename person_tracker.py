@@ -2,7 +2,6 @@
 #
 # person_tracker.py
 #
-
 class PersonTracker:
 
     def __init__(self):

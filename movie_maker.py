@@ -85,8 +85,12 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
 
     output_folder = 'output/' + output_video_path + '_temp/'
 
+    print(video_file_name, video_path, output_video_path, output_folder)
+
     # Create output folder if it doesn't exist
     os.makedirs(output_folder, exist_ok=True)
+
+    dst = False
 
     for i, (start, end) in enumerate(segments):
         segment_folder = os.path.join(
@@ -97,8 +101,25 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             cap.set(cv2.CAP_PROP_POS_FRAMES, int(t * frame_rate))
             ret, frame = cap.read()
 
+            # print(t, ret, frame.shape)
+
             if not ret:
+                print("Error reading frame: " + str(t))
                 break
+
+            if not dst:
+                dst = {
+                    'min_dim': min(frame.shape[:2]),
+                    'padding': 50,
+                    'full_size': resolution[0]
+                }
+                dst['size'] = resolution[0] - 2 * dst['padding']
+                dst['center'] = dst['full_size'] // 2
+                dst['x_start'] = dst['center'] - dst['size'] // 2
+                dst['x_end'] = dst['x_start'] + dst['size']
+                dst['y_start'] = dst['center'] - dst['size'] // 2
+                dst['y_end'] = dst['y_start'] + dst['size']
+            resolution = (dst['full_size'], dst['full_size'])
 
             bounds_at_time = get_bounds_at_time(bounds, t)
             x1, y1, w, h = bounds_at_time[0], bounds_at_time[1], bounds_at_time[2], bounds_at_time[3]
@@ -106,31 +127,37 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             if (w < 120 or h < 120):
                 continue
 
-            padding = 50  # adjust the padding value as needed
-            y_start = max(int(y1-padding), 0)
-            y_end = min(int(y1+h+padding), frame.shape[0])
-            x_start = max(int(x1-padding), 0)
-            x_end = min(int(x1+w+padding), frame.shape[1])
+            padding = 20
 
-            # # keep the x and y values in the shape of a square, using the max of the width and height, keeping the center of the object in the center of the square
-            # if (w > h):
-            #     y_start = max(int(y1 - (w-h)/2 - padding), 0)
-            #     y_end = min(int(y1 + h + (w-h)/2 + padding), frame.shape[0])
-            # elif (h > w):
-            #     x_start = max(int(x1 - (h-w)/2 - padding), 0)
-            #     x_end = min(int(x1 + w + (h-w)/2 + padding), frame.shape[1])
+            min_frame_dim = min(frame.shape[:2])
+            max_roi_dim = max(w, h)
+            desired_roi_size = int(max_roi_dim + 2 * padding)
+            roi_size = min(desired_roi_size, min_frame_dim)
+            half_roi = roi_size // 2
+            bounds_center_x = int(x1 + w / 2)
+            bounds_center_y = int(y1 + h / 2)
+            roi_center_x = min(max(half_roi, bounds_center_x),
+                               frame.shape[1] - half_roi)
+            roi_center_y = min(max(half_roi, bounds_center_y),
+                               frame.shape[0] - half_roi)
+            x_start = int(max(0, roi_center_x - half_roi))
+            y_start = int(max(0, roi_center_y - half_roi))
+            x_end = int(x_start + roi_size)
+            y_end = int(y_start + roi_size)
 
             cropped_frame = frame[y_start:y_end, x_start:x_end]
-            cropped_frame = resizeAndPad(cropped_frame, resolution)
-
-            # resize the frame to fit inside the resolution
-            resized_bg_frame = cv2.resize(
-                frame, resolution, interpolation=cv2.INTER_AREA)
 
             # fill in the rest of the frame with a blurred version of the frame
-            blurred_frame = cv2.GaussianBlur(resized_bg_frame, (51, 51), 0)
-            blurred_frame[y_start:y_end, x_start:x_end] = cropped_frame
+            blurred_frame = cv2.blur(cropped_frame, (51, 51))
+            blurred_frame = cv2.resize(
+                blurred_frame, (dst['size'] + 2 * dst['padding'], dst['size'] + 2 * dst['padding']))
 
+            cropped_resized = cv2.resize(
+                cropped_frame, (dst['size'], dst['size']))
+            blurred_frame[dst['y_start']:dst['y_end'],
+                          dst['x_start']:dst['x_end']] = cropped_resized
+
+            # print(f"Writing frame {t} to {segment_folder}/{t}.jpg")
             cv2.imwrite(os.path.join(segment_folder,
                         f"{t}.jpg"), blurred_frame)
 
@@ -201,17 +228,14 @@ def combine_images_to_video(image_folder, output_path, resolution, fps):
     aspect_ratio = float(width) / float(height)
 
     video = cv2.VideoWriter(
-        output_path, cv2.VideoWriter_fourcc(*"mp4v"), fps, (width, height))
+        output_path, cv2.VideoWriter_fourcc(*'MPV4'), fps, (width, height))
 
     for image_path in images:
         image = cv2.imread(image_path)
 
-        padded_image = resizeAndPad(image, resolution)
+        video.write(image)
 
-        # Write the padded image to the video
-        video.write(padded_image)
-
-        cv2.imshow("Image", padded_image)
+        cv2.imshow("Image", image)
         if cv2.waitKey(1) & 0xFF == ord('q'):
             cv2.destroyAllWindows()
             video.release()
