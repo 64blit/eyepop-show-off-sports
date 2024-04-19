@@ -101,25 +101,35 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             cap.set(cv2.CAP_PROP_POS_FRAMES, int(t * frame_rate))
             ret, frame = cap.read()
 
-            # print(t, ret, frame.shape)
-
             if not ret:
                 print("Error reading frame: " + str(t))
                 break
 
             if not dst:
-                dst = {
-                    'min_dim': min(frame.shape[:2]),
-                    'padding': 50,
-                    'full_size': resolution[0]
-                }
-                dst['size'] = resolution[0] - 2 * dst['padding']
-                dst['center'] = dst['full_size'] // 2
-                dst['x_start'] = dst['center'] - dst['size'] // 2
+                dst = {}
+                dst['padding'] = 50
+                dst['min_dim'] = min(resolution)
+                dst['size'] = dst['min_dim'] - 2 * dst['padding']
+                dst['x_center'] = resolution[1] // 2
+                dst['y_center'] = resolution[0] // 2
+                dst['x_start'] = dst['x_center'] - dst['size'] // 2
                 dst['x_end'] = dst['x_start'] + dst['size']
-                dst['y_start'] = dst['center'] - dst['size'] // 2
+                dst['y_start'] = dst['y_center'] - dst['size'] // 2
                 dst['y_end'] = dst['y_start'] + dst['size']
-            resolution = (dst['full_size'], dst['full_size'])
+
+            blursrc = {}
+            blursrc['x_center'] = frame.shape[1] // 2
+            blursrc['y_center'] = frame.shape[0] // 2
+            frame_to_output_width_ratio = frame.shape[1] / resolution[1]
+            frame_to_output_height_ratio = frame.shape[0] / resolution[0]
+            output_to_frame_scale = min(
+                frame_to_output_width_ratio, frame_to_output_height_ratio)
+            blursrc['w'] = int(resolution[1] * output_to_frame_scale)
+            blursrc['h'] = int(resolution[0] * output_to_frame_scale)
+            blursrc['x_start'] = blursrc['x_center'] - blursrc['w'] // 2
+            blursrc['x_end'] = blursrc['x_start'] + blursrc['w']
+            blursrc['y_start'] = blursrc['y_center'] - blursrc['h'] // 2
+            blursrc['y_end'] = blursrc['y_start'] + blursrc['h']
 
             bounds_at_time = get_bounds_at_time(bounds, t)
             x1, y1, w, h = bounds_at_time[0], bounds_at_time[1], bounds_at_time[2], bounds_at_time[3]
@@ -148,18 +158,20 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             cropped_frame = frame[y_start:y_end, x_start:x_end]
 
             # fill in the rest of the frame with a blurred version of the frame
-            blurred_frame = cv2.blur(cropped_frame, (51, 51))
+            blurred_frame = cv2.blur(frame, (51, 51))
             blurred_frame = cv2.resize(
-                blurred_frame, (dst['size'] + 2 * dst['padding'], dst['size'] + 2 * dst['padding']))
+                blurred_frame, [frame.shape[1], frame.shape[0]])
+            output = cv2.resize(
+                blurred_frame[blursrc['y_start']:blursrc['y_end'], blursrc['x_start']:blursrc['x_end']], (resolution[1], resolution[0]))
 
             cropped_resized = cv2.resize(
                 cropped_frame, (dst['size'], dst['size']))
-            blurred_frame[dst['y_start']:dst['y_end'],
-                          dst['x_start']:dst['x_end']] = cropped_resized
+            output[dst['y_start']:dst['y_end'],
+                   dst['x_start']:dst['x_end']] = cropped_resized
 
             # print(f"Writing frame {t} to {segment_folder}/{t}.jpg")
             cv2.imwrite(os.path.join(segment_folder,
-                        f"{t}.jpg"), blurred_frame)
+                        f"{t}.jpg"), output)
 
     cap.release()
 
@@ -228,12 +240,13 @@ def combine_images_to_video(image_folder, output_path, resolution, fps):
     aspect_ratio = float(width) / float(height)
 
     video = cv2.VideoWriter(
-        output_path, cv2.VideoWriter_fourcc(*'MPV4'), fps, (width, height))
+        output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
 
     for image_path in images:
         image = cv2.imread(image_path)
 
         video.write(image)
+        print(image.shape)
 
         cv2.imshow("Image", image)
         if cv2.waitKey(1) & 0xFF == ord('q'):

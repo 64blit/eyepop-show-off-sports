@@ -1,3 +1,4 @@
+
 # A PersonTracker class which has a map of people, where the key is a traceID and the values are the person's jersey number and the number of frames the person has been in the video. The class should have the following methods:
 #
 # person_tracker.py
@@ -39,6 +40,7 @@ class PersonTracker:
     def filter_map(self, threshold=10):
         # self.consolidate_people()
         self.filter_times(threshold)
+        self.smooth_bounds()
 
     # combine any people entries with the same jersey number, and remove the duplicates
     def consolidate_people(self):
@@ -94,3 +96,34 @@ class PersonTracker:
 
             # Add the last segment
             self.people[key]['time_segments'].append((start_time, times[-1]))
+
+    def smooth_bounds(self):
+        for key in self.people.keys():
+            bounds = self.people[key]['bounds']
+            seconds = self.people[key]['seconds']
+            smoothed_bounds = {}
+
+            for second in seconds:
+                closest_times = sorted(
+                    bounds.keys(), key=lambda x: abs(x - second))[:10]
+                x_sum = 0
+                y_sum = 0
+                w_sum = 0
+                h_sum = 0
+
+                for time in closest_times:
+                    x1, y1, w, h = bounds[time]
+                    x_sum += x1
+                    y_sum += y1
+                    w_sum += w
+                    h_sum += h
+
+                smoothed_x = x_sum / len(closest_times)
+                smoothed_y = y_sum / len(closest_times)
+                smoothed_w = w_sum / len(closest_times)
+                smoothed_h = h_sum / len(closest_times)
+
+                smoothed_bounds[second] = (
+                    smoothed_x, smoothed_y, smoothed_w, smoothed_h)
+
+            self.people[key]['bounds'] = smoothed_bounds
