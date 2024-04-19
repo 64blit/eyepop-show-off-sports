@@ -105,7 +105,7 @@ class PersonTracker:
 
             for second in seconds:
                 closest_times = sorted(
-                    bounds.keys(), key=lambda x: abs(x - second))[:10]
+                    bounds.keys(), key=lambda x: abs(x - second))[:60]
                 x_sum = 0
                 y_sum = 0
                 w_sum = 0

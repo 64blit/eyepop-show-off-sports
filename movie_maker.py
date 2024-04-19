@@ -4,6 +4,7 @@ import os
 import subprocess
 import numpy as np
 import cv2
+import subprocess
 
 
 def splice_and_crop_video_with_transitions(video_path, output_path, segments, transition_duration=.2):
@@ -75,7 +76,7 @@ def splice_video_with_dynamic_rectangles(video_path, file_name, segments, time_b
 # creates a video file with the segments of the video and zooms into the bounds of the segment
 #  The bounds parameter is a time sequenced dictionary of the bounds of the object in the video.#  They look like this: {second: {x: x, y: y, width: width, height: height}} that has an entry
 #   for each decoded frame time of the video. This function will create a video file of a given aspect ratio which fills the frame with the object at the given bounds and maintains the aspect ratio of the object. Adding a blurred background of the video to fill the empty space.
-def create_video(video_path, output_video_path, segments, bounds, resolution=(720, 720)):
+def create_video(video_path, output_video_path, segments, bounds, resolution=(720, 720), draw_bounds=False):
 
     video_file_name = os.path.basename(video_path)
     video_file_name = ''.join(e for e in video_file_name if e.isalnum())
@@ -83,7 +84,7 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
     cap = cv2.VideoCapture(video_path)
     frame_rate = cap.get(cv2.CAP_PROP_FPS)
 
-    output_folder = 'output/' + output_video_path + '_temp/'
+    output_folder = 'output\\' + output_video_path + '_temp\\'
 
     print(video_file_name, video_path, output_video_path, output_folder)
 
@@ -91,11 +92,9 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
     os.makedirs(output_folder, exist_ok=True)
 
     dst = False
+    count = 0
 
     for i, (start, end) in enumerate(segments):
-        segment_folder = os.path.join(
-            output_folder, f"segment_{i}")
-        os.makedirs(segment_folder, exist_ok=True)
 
         for t in np.arange(start, end, 1 / frame_rate):
             cap.set(cv2.CAP_PROP_POS_FRAMES, int(t * frame_rate))
@@ -134,125 +133,78 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             bounds_at_time = get_bounds_at_time(bounds, t)
             x1, y1, w, h = bounds_at_time[0], bounds_at_time[1], bounds_at_time[2], bounds_at_time[3]
 
-            if (w < 120 or h < 120):
-                continue
+            # if (w < 120 or h < 120):
+            #     continue
 
-            padding = 20
+            count += 1
 
-            min_frame_dim = min(frame.shape[:2])
-            max_roi_dim = max(w, h)
-            desired_roi_size = int(max_roi_dim + 2 * padding)
-            roi_size = min(desired_roi_size, min_frame_dim)
-            half_roi = roi_size // 2
-            bounds_center_x = int(x1 + w / 2)
-            bounds_center_y = int(y1 + h / 2)
-            roi_center_x = min(max(half_roi, bounds_center_x),
-                               frame.shape[1] - half_roi)
-            roi_center_y = min(max(half_roi, bounds_center_y),
-                               frame.shape[0] - half_roi)
-            x_start = int(max(0, roi_center_x - half_roi))
-            y_start = int(max(0, roi_center_y - half_roi))
-            x_end = int(x_start + roi_size)
-            y_end = int(y_start + roi_size)
+            if draw_bounds:
+                output = frame.copy()
+                cv2.rectangle(output, (int(x1), int(y1)),
+                              (int(x1 + w), int(y1 + h)), (0, 255, 0), 2)
 
-            cropped_frame = frame[y_start:y_end, x_start:x_end]
+            else:
+                padding = 20
 
-            # fill in the rest of the frame with a blurred version of the frame
-            blurred_frame = cv2.blur(frame, (51, 51))
-            blurred_frame = cv2.resize(
-                blurred_frame, [frame.shape[1], frame.shape[0]])
-            output = cv2.resize(
-                blurred_frame[blursrc['y_start']:blursrc['y_end'], blursrc['x_start']:blursrc['x_end']], (resolution[1], resolution[0]))
+                min_frame_dim = min(frame.shape[:2])
+                max_roi_dim = max(w, h)
+                desired_roi_size = int(max_roi_dim + 2 * padding)
+                roi_size = min(desired_roi_size, min_frame_dim)
+                half_roi = roi_size // 2
+                bounds_center_x = int(x1 + w / 2)
+                bounds_center_y = int(y1 + h / 2)
+                roi_center_x = min(max(half_roi, bounds_center_x),
+                                   frame.shape[1] - half_roi)
+                roi_center_y = min(max(half_roi, bounds_center_y),
+                                   frame.shape[0] - half_roi)
+                x_start = int(max(0, roi_center_x - half_roi))
+                y_start = int(max(0, roi_center_y - half_roi))
+                x_end = int(x_start + roi_size)
+                y_end = int(y_start + roi_size)
 
-            cropped_resized = cv2.resize(
-                cropped_frame, (dst['size'], dst['size']))
-            output[dst['y_start']:dst['y_end'],
-                   dst['x_start']:dst['x_end']] = cropped_resized
+                cropped_frame = frame[y_start:y_end, x_start:x_end]
 
-            # print(f"Writing frame {t} to {segment_folder}/{t}.jpg")
-            cv2.imwrite(os.path.join(segment_folder,
-                        f"{t}.jpg"), output)
+                # fill in the rest of the frame with a blurred version of the frame
+                blurred_frame = cv2.blur(frame, (51, 51))
+                blurred_frame = cv2.resize(
+                    blurred_frame, [frame.shape[1], frame.shape[0]])
+                output = cv2.resize(
+                    blurred_frame[blursrc['y_start']:blursrc['y_end'], blursrc['x_start']:blursrc['x_end']], (resolution[1], resolution[0]))
+
+                cropped_resized = cv2.resize(
+                    cropped_frame, (dst['size'], dst['size']))
+                output[dst['y_start']:dst['y_end'],
+                       dst['x_start']:dst['x_end']] = cropped_resized
+
+            print(f"Writing frame {t} to " + os.path.join(output_folder, str(
+                count).zfill(4) + ".jpg"))
+
+            cv2.imwrite(os.path.join(output_folder, str(
+                count).zfill(4) + ".jpg"), output)
 
     cap.release()
 
     combine_images_to_video(
-        output_folder, f"output/{video_file_name}_{output_video_path}.mp4", resolution=resolution, fps=frame_rate)
-
-
-def resizeAndPad(img, size, padColor=0):
-
-    h, w = img.shape[:2]
-    sh, sw = size
-
-    # interpolation method
-    if h > sh or w > sw:  # shrinking image
-        interp = cv2.INTER_AREA
-    else:  # stretching image
-        interp = cv2.INTER_CUBIC
-
-    # aspect ratio of image
-    # if on Python 2, you might need to cast as a float: float(w)/h
-    aspect = w/h
-
-    # compute scaling and pad sizing
-    if aspect > 1:  # horizontal image
-        new_w = sw
-        new_h = np.round(new_w/aspect).astype(int)
-        pad_vert = (sh-new_h)/2
-        pad_top, pad_bot = np.floor(pad_vert).astype(
-            int), np.ceil(pad_vert).astype(int)
-        pad_left, pad_right = 0, 0
-    elif aspect < 1:  # vertical image
-        new_h = sh
-        new_w = np.round(new_h*aspect).astype(int)
-        pad_horz = (sw-new_w)/2
-        pad_left, pad_right = np.floor(pad_horz).astype(
-            int), np.ceil(pad_horz).astype(int)
-        pad_top, pad_bot = 0, 0
-    else:  # square image
-        new_h, new_w = sh, sw
-        pad_left, pad_right, pad_top, pad_bot = 0, 0, 0, 0
-
-    # set pad color
-    # color image but only one color provided
-    if len(img.shape) is 3 and not isinstance(padColor, (list, tuple, np.ndarray)):
-        padColor = [padColor]*3
-
-    # scale and pad
-    scaled_img = cv2.resize(img, (new_w, new_h), interpolation=interp)
-    scaled_img = cv2.copyMakeBorder(
-        scaled_img, pad_top, pad_bot, pad_left, pad_right, borderType=cv2.BORDER_CONSTANT, value=padColor)
-
-    return scaled_img
+        output_folder, f"output\\{video_file_name}_{output_video_path}.mp4", resolution=resolution, fps=frame_rate)
 
 
 def combine_images_to_video(image_folder, output_path, resolution, fps):
-    images = []
-    for root, dirs, files in os.walk(image_folder):
-        for file in files:
-            if file.endswith(".jpg"):
-                image_path = os.path.join(root, file)
-                images.append(image_path)
+    ffmpeg_cmd = [
+        "ffmpeg",
+        "-r", str(int(fps)),
+        "-i", f"C:\\Users\\edmun\\OneDrive\\Documents\\_SPACE\\EyePop\\64blit\\eyepop-show-off-sports\\{
+            image_folder}%04d.jpg",
+        "-c:v", "libx264",
+        "-vf", f"fps={int(fps)}",
+        "-pix_fmt", "yuv420p",
+        f"C:\\Users\\edmun\\OneDrive\\Documents\\_SPACE\\EyePop\\64blit\\eyepop-show-off-sports\\{
+            output_path}",
+        '-y'
+    ]
+    print('\n\n\n\n\n\n\n\n', ' '.join(ffmpeg_cmd), '\n\n\n\n\n\n\n\n')
 
-    images.sort()
+    subprocess.run(ffmpeg_cmd, check=True)
 
-    width, height = resolution
-    aspect_ratio = float(width) / float(height)
-
-    video = cv2.VideoWriter(
-        output_path, cv2.VideoWriter_fourcc(*'mp4v'), fps, (width, height))
-
-    for image_path in images:
-        image = cv2.imread(image_path)
-
-        video.write(image)
-        print(image.shape)
-
-        cv2.imshow("Image", image)
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            cv2.destroyAllWindows()
-            video.release()
-            exit()
-            break
-
-    video.release()
+    # Delete the image folder
+    subprocess.run(["cmd", "/c", "rmdir", "/s", "/q",
+                   f"C:\\Users\\edmun\\OneDrive\\Documents\\_SPACE\\EyePop\\64blit\\eyepop-show-off-sports\\{image_folder}"])
