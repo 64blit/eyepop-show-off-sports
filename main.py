@@ -169,7 +169,7 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False, smoothi
 # adds command line arguments allowing the user to specify the video file path
 #  and a target jersey number that is compared against the detected labels
 args = ap.ArgumentParser()
-args.add_argument("--video", type=str, default='./Video.MOV')
+args.add_argument("--video", type=str, default='./video/Video.MOV')
 args.add_argument("--target", type=str, default=None, nargs='?')
 args.add_argument("--analyze", action="store_true")
 args.add_argument("--smoothing", type=float, default=.95, nargs='?')
