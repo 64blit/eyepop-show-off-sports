@@ -42,9 +42,10 @@ class PersonTracker:
             self.people[label]['seconds'].append(frame_time)
             self.people[label]['bounds'][frame_time] = bounds
 
-    def filter_map(self, threshold=2):
+    def filter_map(self,  width, height, threshold=2):
         # self.consolidate_people()
         self.filter_times(threshold)
+        self.scale_bounds(max_width=width, max_height=height)
         self.smooth_bounds()
 
     # combine any people entries with the same jersey number, and remove the duplicates
@@ -85,6 +86,35 @@ class PersonTracker:
         for person in people_to_remove:
             del people[person]
 
+    # scale the bounds up to a minimum size of 500x500 and keep the center of the bounding box the same
+    def scale_bounds(self, max_width, max_height):
+        for person in self.people:
+
+            for time in self.people[person]['bounds']:
+
+                x, y, w, h = self.people[person]['bounds'][time]
+
+                # Calculate the center of the bounding box
+                x_center = x + w / 2
+                y_center = y + h / 2
+
+                # Calculate the new width and height
+                new_w = max(max_width//1.5, w)
+                new_h = max(max_width//1.5, h)
+
+                # Ensure the x+width and y+height are less than the max_width and max_height
+                if x + new_w > max_width:
+                    new_w = max_width - x
+                if y + new_h > max_height:
+                    new_h = max_height - y
+
+                # Calculate the new x and y
+                new_x = x_center - new_w / 2
+                new_y = y_center - new_h / 2
+
+                self.people[person]['bounds'][time] = [
+                    new_x, new_y, new_w, new_h]
+
     # consolidate person time list into segments of times in tuples with a threshold of seconds
     def filter_times(self, threshold=2):
 
@@ -112,7 +142,7 @@ class PersonTracker:
 
             for second in seconds:
                 closest_times = sorted(
-                    bounds.keys(), key=lambda x: abs(x - second))[:30]
+                    bounds.keys(), key=lambda x: abs(x - second))[:100]
 
                 x_values = []
                 y_values = []
