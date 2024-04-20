@@ -12,7 +12,7 @@ import movie_maker as mm
 import eyepop_manager as em
 
 
-def main(video_file_path: str, target_jersey_number: str, analyze=False):
+def main(video_file_path: str, target_jersey_number: str, analyze=False, smoothing=20, draw_bounds=False, debug=False):
 
     def upload_video(video_path: str):
         #
@@ -23,7 +23,7 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False):
             em.get_inference_data(video_path)
 
         # The PersonTracker class is used to track people in the video
-        person_tracker = pt.PersonTracker()
+        person_tracker = pt.PersonTracker(smoothing=smoothing)
 
         time.sleep(1)
 
@@ -80,6 +80,22 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False):
                 if 'traceId' in obj:
                     trace_id = obj['traceId']
 
+                # expand the bounds of the person to contain the sports ball location
+                if sports_ball_location['x'] != -1:
+                    diff_x = abs(sports_ball_location['x'] + obj['x'])
+                    diff_y = abs(sports_ball_location['y'] + obj['y'])
+
+                    obj['x'] = min(obj['x'], sports_ball_location['x'])
+                    obj['y'] = min(obj['y'], sports_ball_location['y'])
+
+                    obj['width'] = obj['width'] + \
+                        sports_ball_location['width'] + \
+                        diff_x
+
+                    obj['height'] = obj['height'] + \
+                        sports_ball_location['height'] + \
+                        diff_y
+
                 # calculate the distance between the person and the ball in %
                 if sports_ball_location['x'] != -1:
                     x1 = (
@@ -96,18 +112,9 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False):
                 if (trace_id == None):
                     continue
 
-                # if the ball distance is 20% or more of the screen width, we ignore the person
-                if ball_distance > 0.6 or ball_distance == -1:
-                    continue
-
-                # expand the bounds of the person to contain the sports ball location
-                if sports_ball_location['x'] != -1:
-                    obj['x'] = min(obj['x'], sports_ball_location['x'])
-                    obj['y'] = min(obj['y'], sports_ball_location['y'])
-                    obj['width'] = max(
-                        obj['width'], sports_ball_location['width'])
-                    obj['height'] = max(
-                        obj['height'], sports_ball_location['height'])
+                # # if the ball distance is 20% or more of the screen width, we ignore the person
+                # if ball_distance > 0.6 or ball_distance == -1:
+                #     continue
 
                 # add the person to the person tracker
                 person_tracker.add_person(
@@ -120,6 +127,14 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False):
 
         # filter and consolidate the people in the person tracker
         person_tracker.filter_map()
+
+        if (debug):
+            # print all the keys in the person tracker
+            for key in person_tracker.people.keys():
+                if len(person_tracker.people[key]['seconds']) > 30:
+                    print('Player found:', key,  ' frames detected: ',
+                          len(person_tracker.people[key]['seconds']))
+            return
 
         #
         #   2. create the output videos
@@ -141,7 +156,7 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False):
             time.sleep(1)
 
             mm.create_video(video_file_path, file_name,
-                            person['time_segments'], person['bounds'], resolution=(720, 960))
+                            person['time_segments'], person['bounds'], resolution=(720, 800), draw_bounds=draw_bounds)
 
     upload_video(video_file_path)
 
@@ -152,8 +167,12 @@ args = ap.ArgumentParser()
 args.add_argument("--video", type=str, default='./Video.MOV')
 args.add_argument("--target", type=str, default=None, nargs='?')
 args.add_argument("--analyze", action="store_true")
+args.add_argument("--smoothing", type=float, default=.99, nargs='?')
+args.add_argument("--draw_bounds", action="store_true")
+args.add_argument("--debug", action="store_true")
 args = args.parse_args()
 
 print(args)
 
-main(args.video, args.target, analyze=args.analyze)
+main(args.video, args.target, analyze=args.analyze,
+     smoothing=args.smoothing, draw_bounds=args.draw_bounds, debug=args.debug)
