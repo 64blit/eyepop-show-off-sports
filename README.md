@@ -36,9 +36,9 @@ Here's what each argument does:
 
 --video (optional): The path to the video file you want to analyze.
 --target (optional): The jersey number of the person you want to track.
---analyze (optional): If present, the video will be analyzed to obtain EyePop inference data.
+--analyze (optional): If present, the video will be analyzed to obtain EyePop inference data, without this option the cached inference data will be used. So this is only requred once per video - storing all results into the `data.json` file.
 --smoothing (optional): The smoothing value used by the person tracker. Defaults to 0.95.
 --draw_bounds (optional): If present, bounding boxes will be drawn around tracked people.
---debug (optional): If present, additional logging will be enabled.
+--debug (optional): If present, all jersey numbers will be printe.
 Debugging
 You can debug the current file using the Python Debugger. The launch configuration is set up in .vscode/launch.json.
