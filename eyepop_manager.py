@@ -108,6 +108,7 @@ def get_inference_data(location, timeout=None):
                     # write the result to the data.json file
                     data_file.write(json.dumps(
                         result, indent=4, sort_keys=True))
+
                     data_file.write(",")
 
                     #  stop job if timeout is reached
