@@ -87,7 +87,7 @@ def get_inference_data(location, timeout=None):
             secondary-to-id=3
             model=PARSeq:PARSeq_TextDataset_TorchScriptCuda_float32 threshold=0.1
             ! ep_infer id=5 category-name="sports equipment"
-            model=eyepop-sports:EPSportsB1_Sports_TorchScriptCuda_float32 threshold=0.6
+            model=eyepop-sports:EPSportsB1_Sports_TorchScriptCuda_float32 threshold=0.55
             """
         )
 
