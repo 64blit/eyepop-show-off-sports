@@ -144,7 +144,7 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
 
     for i, (start, end) in enumerate(segments):
 
-        for t in np.arange(start, end, 1 / frame_rate):
+        for t in np.arange(start, end, 1.0 / frame_rate):
             cap.set(cv2.CAP_PROP_POS_FRAMES, int(t * frame_rate))
             ret, frame = cap.read()
             output = None
