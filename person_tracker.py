@@ -1,12 +1,17 @@
+import numpy as np
+import scipy.signal
 
 # A PersonTracker class which has a map of people, where the key is a traceID and the values are the person's jersey number and the number of frames the person has been in the video. The class should have the following methods:
 #
 # person_tracker.py
 #
+
+
 class PersonTracker:
 
-    def __init__(self):
+    def __init__(self, smoothing=20):
         self.people = {}
+        self.smoothing = smoothing
 
     # add a person to the people map
     def add_person(self, labels: [], trace_id: int, frame_time: float, bounds: []) -> None:
@@ -37,7 +42,7 @@ class PersonTracker:
             self.people[label]['seconds'].append(frame_time)
             self.people[label]['bounds'][frame_time] = bounds
 
-    def filter_map(self, threshold=10):
+    def filter_map(self, threshold=2):
         # self.consolidate_people()
         self.filter_times(threshold)
         self.smooth_bounds()
@@ -97,33 +102,72 @@ class PersonTracker:
             # Add the last segment
             self.people[key]['time_segments'].append((start_time, times[-1]))
 
-    def smooth_bounds(self):
+    def average_bounds(self):
+        if self.smoothing <= 0:
+            return
+
         for key in self.people.keys():
             bounds = self.people[key]['bounds']
             seconds = self.people[key]['seconds']
-            smoothed_bounds = {}
 
             for second in seconds:
                 closest_times = sorted(
-                    bounds.keys(), key=lambda x: abs(x - second))[:60]
-                x_sum = 0
-                y_sum = 0
-                w_sum = 0
-                h_sum = 0
+                    bounds.keys(), key=lambda x: abs(x - second))[:30]
+
+                x_values = []
+                y_values = []
+                w_values = []
+                h_values = []
 
                 for time in closest_times:
                     x1, y1, w, h = bounds[time]
-                    x_sum += x1
-                    y_sum += y1
-                    w_sum += w
-                    h_sum += h
+                    x_values.append(x1)
+                    y_values.append(y1)
+                    w_values.append(w)
+                    h_values.append(h)
 
-                smoothed_x = x_sum / len(closest_times)
-                smoothed_y = y_sum / len(closest_times)
-                smoothed_w = w_sum / len(closest_times)
-                smoothed_h = h_sum / len(closest_times)
+                x_mean = np.mean(x_values)
+                y_mean = np.mean(y_values)
+                w_mean = np.mean(w_values)
+                h_mean = np.mean(h_values)
 
-                smoothed_bounds[second] = (
-                    smoothed_x, smoothed_y, smoothed_w, smoothed_h)
+                bounds[closest_times[0]] = [
+                    x_mean, y_mean, w_mean, h_mean]
 
-            self.people[key]['bounds'] = smoothed_bounds
+    def smooth_bounds(self):
+        if self.smoothing <= 0.0:
+            return
+
+        self.average_bounds()
+
+        alpha = self.smoothing  # Smoothing factor. Adjust this to increase or decrease smoothing
+
+        for key in self.people.keys():
+            bounds = self.people[key]['bounds']
+            seconds = self.people[key]['seconds']
+            ema_bounds = {}
+
+            sorted_seconds = sorted(seconds)
+            if sorted_seconds:
+                ema_bounds[sorted_seconds[0]] = bounds[sorted_seconds[0]]
+
+            for i in range(1, len(sorted_seconds)):
+                current_time = sorted_seconds[i]
+                previous_time = sorted_seconds[i - 1]
+
+                previous_bounds = ema_bounds[previous_time]
+                current_bounds = bounds[current_time]
+
+                x1, y1, w, h = current_bounds
+                prev_x, prev_y, prev_w, prev_h = previous_bounds
+
+                # Calculate the exponential moving average
+                x_mean = alpha * x1 + (1 - alpha) * prev_x
+                y_mean = alpha * y1 + (1 - alpha) * prev_y
+                w_mean = alpha * w + (1 - alpha) * prev_w
+                h_mean = alpha * h + (1 - alpha) * prev_h
+
+                ema_bounds[current_time] = [x_mean, y_mean, w_mean, h_mean]
+
+            # Update the original bounds with the smoothed values
+            bounds.update(ema_bounds)
