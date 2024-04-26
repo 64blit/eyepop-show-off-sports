@@ -162,7 +162,7 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False, smoothi
             time.sleep(1)
 
             mm.create_video(video_file_path, file_name,
-                            person['time_segments'], person['bounds'], resolution=(480, 720), draw_bounds=draw_bounds)
+                            person['time_segments'], person['bounds'], resolution=(720, 600), draw_bounds=draw_bounds)
 
     upload_video(video_file_path)
 

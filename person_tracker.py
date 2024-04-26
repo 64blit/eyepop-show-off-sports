@@ -45,7 +45,7 @@ class PersonTracker:
     def filter_map(self,  width, height, threshold=2):
         # self.consolidate_people()
         self.filter_times(threshold)
-        self.scale_bounds(max_width=width, max_height=height)
+        # self.scale_bounds(max_width=width, max_height=height)
         self.smooth_bounds()
 
     # combine any people entries with the same jersey number, and remove the duplicates
@@ -112,8 +112,7 @@ class PersonTracker:
                 new_x = x_center - new_w / 2
                 new_y = y_center - new_h / 2
 
-                self.people[person]['bounds'][time] = [
-                    new_x, new_y, new_w, new_h]
+                self.people[person]['bounds'][time] = [new_x, new_y, new_w, new_h]
 
     # consolidate person time list into segments of times in tuples with a threshold of seconds
     def filter_times(self, threshold=2):
@@ -135,22 +134,34 @@ class PersonTracker:
     def average_bounds(self):
         if self.smoothing <= 0:
             return
+        
+        same_person_threshold = np.inf
+        times_before = 10
+        times_after = 1
 
         for key in self.people.keys():
             bounds = self.people[key]['bounds']
             seconds = self.people[key]['seconds']
 
-            for second in seconds:
-                closest_times = sorted(
-                    bounds.keys(), key=lambda x: abs(x - second))[:100]
+            for s in range(len(seconds)):
+                second = seconds[s]
+
+                times_to_average = seconds[max(0, s - times_before):min(len(seconds), s + times_after + 1)]
 
                 x_values = []
                 y_values = []
                 w_values = []
                 h_values = []
-
-                for time in closest_times:
+                
+                x_current_center = bounds[second][0] + bounds[second][2] / 2
+                y_current_center = bounds[second][1] + bounds[second][3] / 2
+                
+                for time in times_to_average:
                     x1, y1, w, h = bounds[time]
+                    x_center = x1 + w / 2
+                    y_center = y1 + h / 2
+                    if abs(x_center - x_current_center) > same_person_threshold or abs(y_center - y_current_center) > same_person_threshold:
+                        continue
                     x_values.append(x1)
                     y_values.append(y1)
                     w_values.append(w)
@@ -161,8 +172,7 @@ class PersonTracker:
                 w_mean = np.mean(w_values)
                 h_mean = np.mean(h_values)
 
-                bounds[closest_times[0]] = [
-                    x_mean, y_mean, w_mean, h_mean]
+                bounds[times_to_average[0]] = [x_mean, y_mean, w_mean, h_mean]
 
     def smooth_bounds(self):
         if self.smoothing <= 0.0:
@@ -200,4 +210,4 @@ class PersonTracker:
                 ema_bounds[current_time] = [x_mean, y_mean, w_mean, h_mean]
 
             # Update the original bounds with the smoothed values
-            bounds.update(ema_bounds)
+            # bounds.update(ema_bounds)
