@@ -6,122 +6,14 @@ import numpy as np
 import cv2
 import subprocess
 
-
-def splice_and_crop_video_with_transitions(video_path, output_path, segments, transition_duration=.2):
-    clip = VideoFileClip(video_path)
-    cropped_clips = []
-    for start, end in segments:  # (x1, y1, x2, y2)
-        # .crop(x1=x1, y1=y1, x2=x2, y2=y2)
-        subclip = clip.subclip(start, end)
-        cropped_clips.append(subclip)
-
-    # Adding transitions between clips
-    final_clips = [cropped_clips[0]]
-    for i in range(1, len(cropped_clips)):
-        transition = transfx.crossfadein(
-            cropped_clips[i], duration=transition_duration)
-        final_clips.append(transition)
-
-    final_clip = concatenate_videoclips(
-        final_clips, method="compose", padding=-transition_duration)
-    final_clip.write_videofile(output_path, codec="libx264")
+sprite = cv2.imread(
+    "indicator.png", cv2.IMREAD_UNCHANGED)
 
 
 def get_bounds_at_time(time_bounds, t):
     """ Interpolate or retrieve bounds at given time `t`. """
     closest_time = min(time_bounds.keys(), key=lambda x: abs(x - t))
     return time_bounds[closest_time]
-
-
-def rectangle_bounds(t, time_bounds):
-    """ Return the position of the rectangle at time `t`. """
-    bounds = get_bounds_at_time(time_bounds, t)
-    x1, y1, w, h = bounds[0], bounds[1], bounds[2], bounds[3]
-    return (x1, y1, w, h)
-
-
-def splice_video_with_dynamic_rectangles(video_path, file_name, segments, time_bounds, rectangle_color=(255, 0, 0), rectangle_opacity=0.5):
-    clip = VideoFileClip(video_path)
-    clip = VideoFileClip(video_path)
-    annotated_clips = []
-    subclip = clip.subclip(start, end)
-
-    for start, end in segments:
-        subclip = clip.subclip(start, end)
-
-        # Create a rectangle that will move according to the frame-specific bounds
-        initial_bounds = get_bounds_at_time(time_bounds, start)
-        rectangle = ColorClip(size=(int(initial_bounds[2]), int(
-            initial_bounds[3])), color=rectangle_color, duration=.25, ismask=False)
-        rectangle = rectangle.set_opacity(rectangle_opacity)
-        rectangle = rectangle.set_position(
-            (initial_bounds[0], initial_bounds[1]))
-
-        # Overlay the rectangle on the subclip
-        annotated_clip = CompositeVideoClip([subclip, rectangle])
-        annotated_clips.append(annotated_clip)
-
-    # get the filename from the video path and remove all non alphanumeric characters
-    video_file_name = os.path.basename(video_path)
-    video_file_name = ''.join(e for e in video_file_name if e.isalnum())
-
-    # Concatenate all annotated clips
-    clip = concatenate_videoclips(annotated_clips, method="compose")
-
-    # Save the annotated video
-    output_path = f"{file_name}.mp4"
-    clip.write_videofile(output_path, codec="libx264")
-
-
-def resizeAndPad(img, size, padColor=0):
-
-    h, w = img.shape[:2]
-    sh, sw = size
-
-    # interpolation method
-    if h > sh or w > sw:  # shrinking image
-        interp = cv2.INTER_AREA
-    else:  # stretching image
-        interp = cv2.INTER_CUBIC
-
-    # aspect ratio of image
-    # if on Python 2, you might need to cast as a float: float(w)/h
-    aspect = w/h
-
-    # compute scaling and pad sizing
-    if aspect > 1:  # horizontal image
-        new_w = sw
-        new_h = np.round(new_w/aspect).astype(int)
-        pad_vert = (sh-new_h)/2
-        pad_top, pad_bot = np.floor(pad_vert).astype(
-            int), np.ceil(pad_vert).astype(int)
-        pad_left, pad_right = 0, 0
-    elif aspect < 1:  # vertical image
-        new_h = sh
-        new_w = np.round(new_h*aspect).astype(int)
-        pad_horz = (sw-new_w)/2
-        pad_left, pad_right = np.floor(pad_horz).astype(
-            int), np.ceil(pad_horz).astype(int)
-        pad_top, pad_bot = 0, 0
-    else:  # square image
-        new_h, new_w = sh, sw
-        pad_left, pad_right, pad_top, pad_bot = 0, 0, 0, 0
-
-    # set pad color
-    # color image but only one color provided
-    if len(img.shape) is 3 and not isinstance(padColor, (list, tuple, np.ndarray)):
-        padColor = [padColor]*3
-
-    # scale and pad
-    scaled_img = cv2.resize(img, (new_w, new_h), interpolation=interp)
-    scaled_img = cv2.copyMakeBorder(
-        scaled_img, pad_top, pad_bot, pad_left, pad_right, borderType=cv2.BORDER_CONSTANT, value=padColor)
-
-    return scaled_img
-
-# creates a video file with the segments of the video and zooms into the bounds of the segment
-#  The bounds parameter is a time sequenced dictionary of the bounds of the object in the video.#  They look like this: {second: {x: x, y: y, width: width, height: height}} that has an entry
-#   for each decoded frame time of the video. This function will create a video file of a given aspect ratio which fills the frame with the object at the given bounds and maintains the aspect ratio of the object. Adding a blurred background of the video to fill the empty space.
 
 
 def create_video(video_path, output_video_path, segments, bounds, resolution=(720, 720), draw_bounds=False):
@@ -155,7 +47,7 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
 
             if not dst:
                 dst = {}
-                dst['padding'] = 20
+                dst['padding'] = 5
                 dst['min_dim'] = min(resolution)
                 dst['size'] = dst['min_dim'] - 2 * dst['padding']
                 dst['x_center'] = resolution[1] // 2
@@ -183,20 +75,30 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             x1, y1, w, h = bounds_at_time[0], bounds_at_time[1], bounds_at_time[2], bounds_at_time[3]
 
             count += 1
-
-            padding = 0
+            padding = 50
 
             min_frame_dim = min(frame.shape[:2])
+
+            if draw_bounds:
+
+                cv2.rectangle(frame, (int(x1), int(y1)),
+                              (int(x1 + w), int(y1 + h)), (0, 255, 0), 2)
+
+            # calculate the size of the region of interest, keeping it a square
             max_roi_dim = max(w, h)
             desired_roi_size = int(max_roi_dim + 2 * padding)
             roi_size = min(desired_roi_size, min_frame_dim)
             half_roi = roi_size // 2
             bounds_center_x = int(x1 + w / 2)
             bounds_center_y = int(y1 + h / 2)
+
+            # clamped region of interest inside frame, preserving size
             roi_center_x = min(max(half_roi, bounds_center_x),
                                frame.shape[1] - half_roi)
             roi_center_y = min(max(half_roi, bounds_center_y),
                                frame.shape[0] - half_roi)
+
+            # new start and end coordinates for the region of interest based on frame size
             x_start = int(max(0, roi_center_x - half_roi))
             y_start = int(max(0, roi_center_y - half_roi))
             x_end = int(x_start + roi_size)
@@ -204,10 +106,48 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
 
             cropped_frame = frame[y_start:y_end, x_start:x_end]
 
+            # Load the sprite image
+            sprite_width = int(w * 0.1)  # Adjust the scale factor as needed
+            sprite_height = int(sprite_width)  # Load the sprite image
+
+            # Calculate the new coordinates relative to the cropped region,
+            #  keeping x1 in the center of the entire frame
+            new_x1 = int((x_start - w/2) + sprite_width/2)
+
+            # Calculate the position of the sprite
+            sprite_x = new_x1
+            sprite_y = int(y1 - y_start + padding - 50)
+
+            sprite_resized = cv2.resize(sprite, (sprite_width, sprite_height))
+
+            # Paste the sprite onto the frame, keeping it in bounds
+            sprite_height, sprite_width, _ = sprite_resized.shape
+            sprite_x = max(sprite_x, 0)
+            sprite_y = max(sprite_y, 0)
+            sprite_x = min(sprite_x, cropped_frame.shape[1] - sprite_width)
+            sprite_y = min(sprite_y, cropped_frame.shape[0] - sprite_height)
+
+            # Add the sprite to the cropped frame, respecting alpha channel
+            alpha = sprite_resized[:, :, 3] / 255.0
+            foreground = sprite_resized[:, :, :3]
+            background = cropped_frame[sprite_y:sprite_y + sprite_height,
+                                       sprite_x:sprite_x + sprite_width, :]
+
+            # Expand the dimensions of alpha to match the shape of foreground and background
+            alpha_expanded = np.expand_dims(alpha, axis=2)
+
+            # Multiply alpha_expanded with foreground and (1 - alpha_expanded) with background
+            blended = (alpha_expanded * foreground +
+                       (1 - alpha_expanded) * background).astype(np.uint8)
+
+            cropped_frame[sprite_y:sprite_y + sprite_height,
+                          sprite_x:sprite_x + sprite_width, :] = blended
+
             # fill in the rest of the frame with a blurred version of the frame
             blurred_frame = cv2.blur(frame, (51, 51))
             blurred_frame = cv2.resize(
                 blurred_frame, [frame.shape[1], frame.shape[0]])
+
             output = cv2.resize(
                 blurred_frame[blursrc['y_start']:blursrc['y_end'], blursrc['x_start']:blursrc['x_end']], (resolution[1], resolution[0]))
 
@@ -216,16 +156,17 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             output[dst['y_start']:dst['y_end'],
                    dst['x_start']:dst['x_end']] = cropped_resized
 
-            print(f"Writing frame {t} to " + os.path.join(output_folder, str(
-                count).zfill(4) + ".jpg"))
-
-            if draw_bounds:
-
-                cv2.rectangle(output, (int(x1), int(y1)),
-                              (int(x1 + w), int(y1 + h)), (0, 255, 0), 2)
+            print(f"Writing frame {
+                  t} to " + os.path.join(output_folder, str(count).zfill(4) + ".jpg"))
 
             cv2.imwrite(os.path.join(output_folder, str(
                 count).zfill(4) + ".jpg"), output)
+
+            cv2.imshow('frame', output)
+
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                exit()
+                break
 
     cap.release()
 

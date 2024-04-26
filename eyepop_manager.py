@@ -26,9 +26,10 @@ def get_inference_data(location, timeout=None):
     logging.getLogger('eyepop').setLevel(level=logging.DEBUG)
 
     # EyePop SDK configuration
-    EYEPOP_POP_ID = '8d88113ee4814b6683eba5a69fba7454'
+    EYEPOP_POP_ID = 'ab3cb23c05c045a29ee6ea00c765f167'
     EYEPOP_SECRET_KEY = open("eyepop_secret.env", "r").read()
-    EYEPOP_URL = 'https://staging-api.eyepop.ai'
+    # EYEPOP_URL = 'https://staging-api.eyepop.ai'
+    EYEPOP_URL = 'https://api.eyepop.ai'
 
     with EyePopSdk.endpoint(pop_id=EYEPOP_POP_ID, secret_key=EYEPOP_SECRET_KEY, eyepop_url=EYEPOP_URL, is_async=False) as endpoint:
 

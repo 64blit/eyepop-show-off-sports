@@ -42,7 +42,8 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False, smoothi
             source_height = result['source_height']
 
             sports_ball_location = {
-                'x': -1, 'y': -1, 'width': -1, 'height': -1}
+                'x': -1, 'y': -1, 'width': -1, 'height': -1
+            }
 
             # skip any empty results
             if 'objects' not in result:
@@ -161,7 +162,7 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False, smoothi
             time.sleep(1)
 
             mm.create_video(video_file_path, file_name,
-                            person['time_segments'], person['bounds'], resolution=(720, 480), draw_bounds=draw_bounds)
+                            person['time_segments'], person['bounds'], resolution=(480, 720), draw_bounds=draw_bounds)
 
     upload_video(video_file_path)
 
