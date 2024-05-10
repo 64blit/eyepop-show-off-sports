@@ -49,15 +49,16 @@ def main(video_file_path: str, target_jersey_number: str, analyze=False, smoothi
             if 'objects' not in result:
                 continue
 
-            # find the sports ball location
-            for obj in result['objects']:
+            # if not draw_bounds:
+            #     # find the sports ball location
+            #     for obj in result['objects']:
 
-                if obj['classLabel'] == 'sports ball':
+            #         if obj['classLabel'] == 'sports ball':
 
-                    sports_ball_location['x'] = obj['x']
-                    sports_ball_location['y'] = obj['y']
-                    sports_ball_location['width'] = obj['width']
-                    sports_ball_location['height'] = obj['height']
+            #             sports_ball_location['x'] = obj['x']
+            #             sports_ball_location['y'] = obj['y']
+            #             sports_ball_location['width'] = obj['width']
+            #             sports_ball_location['height'] = obj['height']
 
             # iterate through the people in the video
             for obj in result['objects']:

@@ -69,7 +69,7 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
                               (bounds_rect['right'], bounds_rect['bottom']), (0, 255, 0), 2)
 
             # calculate the size of the region of interest, keeping it a square
-            roi_padding = 100
+            roi_padding = 200  # w // 2
             desired_roi_size = int(bounds_rect['max_dim'] + 2 * roi_padding)
             roi_size = min(max(500, desired_roi_size), frame_rect['min_dim'])
             roi_rect = twod.get_rect_clamped_inside_another_rect(
@@ -77,8 +77,10 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
 
             # calculate the size of the sprite
             sprite_min_size = 20
+            sprite_max_size = 50
             # Adjust the scale factor as needed
-            sprite_width = max(sprite_min_size, int(w * 0.3))
+            sprite_width = min(
+                max(sprite_min_size, int(w * 0.3)), sprite_max_size)
             sprite_height = int(sprite_width)
             sprite_resized = cv2.resize(sprite, (sprite_width, sprite_height))
             sprite_rect = twod.get_rect_clamped_inside_another_rect(
@@ -110,9 +112,11 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             roi_resized = cv2.resize(roi, (dst_rect['w'], dst_rect['h']))
             output[twod.to_slice(dst_rect)] = roi_resized
 
-            # uncomment to show roi within frame. red is roi, green is bounds
-            # cv2.rectangle(frame, *toodi.to_corners(roi_rect), (0, 0, 255), 2)
-            # output = frame
+            if draw_bounds:
+                # uncomment to show roi within frame. red is roi, green is bounds
+                cv2.rectangle(frame, *twod.to_corners(roi_rect),
+                              (0, 0, 255), 2)
+                output = frame
 
             print(f"Writing frame {
                   t} to " + os.path.join(output_folder, str(count).zfill(4) + ".jpg"))
@@ -120,11 +124,12 @@ def create_video(video_path, output_video_path, segments, bounds, resolution=(72
             cv2.imwrite(os.path.join(output_folder, str(
                 count).zfill(4) + ".jpg"), output)
 
-            cv2.imshow('frame', output)
+            cv2.imshow('frame' + output_video_path, output)
 
             if cv2.waitKey(1) & 0xFF == ord('q'):
                 exit()
                 break
+        cv2.destroyAllWindows()
 
     cap.release()
 

@@ -8,7 +8,7 @@ import json
 import aiofiles
 
 
-def get_inference_data(location, timeout=None):
+def get_inference_data(location, pop_id, timeout=None):
     """
     Perform inference on the given video using the EyePop SDK.
 
@@ -26,7 +26,7 @@ def get_inference_data(location, timeout=None):
     logging.getLogger('eyepop').setLevel(level=logging.DEBUG)
 
     # EyePop SDK configuration
-    EYEPOP_POP_ID = 'ab3cb23c05c045a29ee6ea00c765f167'
+    EYEPOP_POP_ID = pop_id
     EYEPOP_SECRET_KEY = open("eyepop_secret.env", "r").read()
     # EYEPOP_URL = 'https://staging-api.eyepop.ai'
     EYEPOP_URL = 'https://api.eyepop.ai'
@@ -60,6 +60,7 @@ def get_inference_data(location, timeout=None):
             'format': 'TorchScriptCuda',
             'type': 'float32'
         }
+
         endpoint.load_model(inner_model_def)
 
         # load eyepop-text model
@@ -69,26 +70,27 @@ def get_inference_data(location, timeout=None):
             'format': 'TorchScriptCuda',
             'type': 'float32'
         }
+
         endpoint.load_model(inner_model_def)
 
         endpoint.set_pop_comp(
             """
-            ep_infer id=1
-            model=eyepop-person:EPPersonB1_Person_TorchScriptCuda_float32 threshold=0.8
-            ! ep_infer id=2
-            tracing=deepsort
-            model=legacy:reid-mobilenetv2_x1_4_ImageNet_TensorFlowLite_int8
-            secondary-to-id=1
-            secondary-for-class-ids=<0>
-            ! ep_infer id=3  category-name="text"
-            model=eyepop-text:EPTextB1_Text_TorchScriptCuda_float32 threshold=0.6
-            secondary-to-id=1
-            secondary-for-class-ids=<0>
-            ! ep_infer id=4 category-name="text"
-            secondary-to-id=3
-            model=PARSeq:PARSeq_TextDataset_TorchScriptCuda_float32 threshold=0.1
-            ! ep_infer id=5 category-name="sports equipment"
-            model=eyepop-sports:EPSportsB1_Sports_TorchScriptCuda_float32 threshold=0.55
+                ep_infer id=1
+                model=eyepop-person:EPPersonB1_Person_TorchScriptCuda_float32 threshold=0.8
+                ! ep_infer id=2
+                tracing=deepsort
+                model=legacy:reid-mobilenetv2_x1_4_ImageNet_TensorFlowLite_int8
+                secondary-to-id=1
+                secondary-for-class-ids=<0>
+                ! ep_infer id=3  category-name="text"
+                model=eyepop-text:EPTextB1_Text_TorchScriptCuda_float32 threshold=0.6
+                secondary-to-id=1
+                secondary-for-class-ids=<0>
+                ! ep_infer id=4 category-name="text"
+                secondary-to-id=3
+                model=PARSeq:PARSeq_TextDataset_TorchScriptCuda_float32 threshold=0.1
+                ! ep_infer id=5 category-name="sports equipment"
+                model=eyepop-sports:EPSportsB1_Sports_TorchScriptCuda_float32 threshold=0.55
             """
         )
 
