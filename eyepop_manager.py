@@ -26,8 +26,16 @@ def get_inference_data(location, pop_id, timeout=None):
     logging.getLogger('eyepop').setLevel(level=logging.DEBUG)
 
     # EyePop SDK configuration
-    EYEPOP_POP_ID = pop_id
-    EYEPOP_SECRET_KEY = open("eyepop_secret.env", "r").read()
+    EYEPOP_POP_ID = ""
+    EYEPOP_SECRET_KEY = ""
+
+    try:
+        EYEPOP_POP_ID = open("eyepop_id.env", "r").read()
+        EYEPOP_SECRET_KEY = open("eyepop_secret.env", "r").read()
+    except (e):
+        print("Error reading EyePop credentials, ensure the eyepop_id.env and eyepop_secret.env files are present in the root directory.")
+        exit()
+
     # EYEPOP_URL = 'https://staging-api.eyepop.ai'
     EYEPOP_URL = 'https://api.eyepop.ai'
 

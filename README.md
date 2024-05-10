@@ -21,7 +21,7 @@ This is an example project using the EyePop.ai API and cv2 to track players in a
 
 1. Clone the repository
 2. Install the required Python packages
-3. Setup a Pop via the EyePop documentation at [docs.eyepop.ai](docs.eyepop.ai) and enter your secret key in a `eyepop_secret.env` file without any other text
+3. Setup a Pop via the EyePop documentation at [docs.eyepop.ai](docs.eyepop.ai) and enter your pop id and secret key in files named `eyepop_secret.env` and `eyepop_id.env` respectively
 4. Create an `output` folder for the results
 
 ## Usage
